@@ -1,0 +1,64 @@
+{
+  "name": "saas-platform",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "postinstall": "prisma generate",
+    "db:seed": "node prisma/seed.js",
+    "db:push": "prisma db push",
+    "cap:sync": "npx cap sync android",
+    "cap:open": "npx cap open android",
+    "android:sync": "npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:build": "cd android && .\\gradlew.bat bundleRelease"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "capacitor": {
+    "platforms": [
+      "android"
+    ]
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/cli": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
+    "@prisma/client": "^5.19.1",
+    "bcryptjs": "^2.4.3",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "jsonwebtoken": "^9.0.2",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.2",
+    "lucide-react": "^0.439.0",
+    "next": "^14.2.10",
+    "razorpay": "^2.9.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.12.7",
+    "tailwind-merge": "^2.5.2"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.16.5",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.10",
+    "postcss": "^8.4.45",
+    "prisma": "^5.19.1",
+    "tailwindcss": "^3.4.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  }
+}

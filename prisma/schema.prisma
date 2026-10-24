@@ -1,0 +1,456 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ----------------------------------------------------
+// Core Tenant & Subscription Models
+// ----------------------------------------------------
+
+model Tenant {
+  id                    String             @id @default(uuid()) @map("_id")
+  businessName          String
+  businessLogo          String?
+  ownerName             String
+  email                 String
+  mobileNumber          String
+  address               String?
+  city                  String?
+  state                 String?
+  country               String?            @default("India")
+  pincode               String?
+  gstin                 String?
+  pan                   String?
+  businessType          String             @default("RETAIL") // RETAIL, WHOLESALE, SERVICES, MANUFACTURING, FREELANCE, OTHER
+  
+  // Billing settings
+  invoicePrefix         String             @default("INV")
+  invoiceStartingNumber Int                @default(1001)
+  
+  // Bank details
+  bankName              String?
+  bankAccountNumber     String?
+  ifscCode              String?
+  upiId                 String?
+  paymentQrCode         String?
+  
+  // Default Terms & Footer
+  termsAndConditions    String?            @default("Thank you for your business. Payment due upon receipt.")
+  invoiceFooter         String?            @default("This is a computer generated invoice.")
+
+  // Subscription state
+  subscriptionStatus    String             @default("TRIALING") // TRIALING, ACTIVE, PAST_DUE, CANCELED, EXPIRED
+  trialEndsAt           DateTime?
+  subscriptionEndsAt    DateTime?
+  planId                String?
+  plan                  Plan?              @relation(fields: [planId], references: [id])
+  
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  // Relations
+  users                 User[]
+  categories            Category[]
+  brands                Brand[]
+  products              Product[]
+  customers             Customer[]
+  invoices              Invoice[]
+  payments              Payment[]
+  stockMovements        StockMovement[]
+  expenseCategories     ExpenseCategory[]
+  expenses              Expense[]
+  subscriptions         SubscriptionHistory[]
+  supportTickets        SupportTicket[]
+  auditLogs             AuditLog[]
+
+  @@index([email])
+  @@index([subscriptionStatus])
+}
+
+model Plan {
+  id                  String             @id @default(uuid()) @map("_id")
+  name                String             @unique
+  code                String             @unique
+  description         String?
+  monthlyPrice        Float              @default(0.0)
+  yearlyPrice         Float              @default(0.0)
+  razorpayPlanIdMonth String?
+  razorpayPlanIdYear  String?
+  
+  // Feature Limits
+  maxInvoices         Int                @default(50)
+  maxProducts         Int                @default(100)
+  maxUsers            Int                @default(1)
+  maxCustomers        Int                @default(100)
+  hasInventory        Boolean            @default(true)
+  hasAdvancedReports  Boolean            @default(false)
+  hasMultipleBranches Boolean            @default(false)
+  
+  isActive            Boolean            @default(true)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  tenants             Tenant[]
+  subscriptions       SubscriptionHistory[]
+}
+
+model SubscriptionHistory {
+  id                     String   @id @default(uuid()) @map("_id")
+  tenantId               String
+  tenant                 Tenant   @relation(fields: [tenantId], references: [id])
+  planId                 String
+  plan                   Plan     @relation(fields: [planId], references: [id])
+  
+  billingCycle           String   @default("MONTHLY") // MONTHLY, YEARLY
+  amount                 Float
+  status                 String   @default("ACTIVE")
+  
+  razorpaySubscriptionId String?
+  razorpayPaymentId      String?
+  razorpaySignature      String?
+
+  startDate              DateTime @default(now())
+  endDate                DateTime
+  createdAt              DateTime @default(now())
+}
+
+// ----------------------------------------------------
+// User & Auth Management
+// ----------------------------------------------------
+
+model User {
+  id              String      @id @default(uuid()) @map("_id")
+  tenantId        String?
+  tenant          Tenant?     @relation(fields: [tenantId], references: [id])
+  name            String
+  email           String      @unique
+  passwordHash    String
+  mobile          String?
+  alternatePhone  String?
+  whatsapp        String?
+  address         String?
+  city            String?
+  state           String?
+  country         String?     @default("India")
+  pincode         String?
+  profileImageUrl String?
+  dateOfBirth     DateTime?
+  gender          String?     // MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY
+  designation     String?     // Job title for staff / manager
+  role            String      @default("TENANT_OWNER") // SUPER_ADMIN, TENANT_OWNER, TENANT_MANAGER, TENANT_STAFF
+  isActive        Boolean     @default(true)
+  refreshToken    String?
+  lastLoginAt     DateTime?
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  invoices        Invoice[]   @relation("InvoiceCreatedBy")
+  payments        Payment[]   @relation("PaymentCreatedBy")
+  expenses        Expense[]   @relation("ExpenseCreatedBy")
+  stockLogs       StockMovement[] @relation("StockCreatedBy")
+  tickets         SupportTicket[]
+
+  @@index([tenantId])
+  @@index([role])
+  @@index([mobile])
+}
+
+// ----------------------------------------------------
+// Inventory & Product Catalog
+// ----------------------------------------------------
+
+model Category {
+  id          String    @id @default(uuid()) @map("_id")
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  name        String
+  description String?
+  createdAt   DateTime  @default(now())
+
+  products    Product[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model Brand {
+  id          String    @id @default(uuid()) @map("_id")
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  name        String
+  description String?
+  createdAt   DateTime  @default(now())
+
+  products    Product[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model Product {
+  id              String         @id @default(uuid()) @map("_id")
+  tenantId        String
+  tenant          Tenant         @relation(fields: [tenantId], references: [id])
+  
+  name            String
+  description     String?
+  sku             String?
+  barcode         String?
+  
+  categoryId      String?
+  category        Category?      @relation(fields: [categoryId], references: [id])
+  brandId         String?
+  brand           Brand?         @relation(fields: [brandId], references: [id])
+  
+  unit            String         @default("PCS")
+  purchasePrice   Float          @default(0.0)
+  sellingPrice    Float          @default(0.0)
+  mrp             Float          @default(0.0)
+  discount        Float          @default(0.0)
+  taxRate         Float          @default(0.0)
+  
+  openingStock    Float          @default(0.0)
+  currentStock    Float          @default(0.0)
+  minStockLevel   Float          @default(5.0)
+  productImage    String?
+  isActive        Boolean        @default(true)
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  invoiceItems    InvoiceItem[]
+  stockMovements  StockMovement[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId, name])
+  @@index([tenantId, barcode])
+  @@index([tenantId, categoryId])
+  @@index([tenantId, isActive])
+}
+
+model StockMovement {
+  id            String       @id @default(uuid()) @map("_id")
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id])
+  productId     String
+  product       Product      @relation(fields: [productId], references: [id])
+  
+  quantity      Float
+  movementType  String       @default("ADJUSTMENT") // STOCK_IN, STOCK_OUT, ADJUSTMENT, SALE_DEDUCTION, CANCEL_RETURN
+  referenceId   String?
+  notes         String?
+  
+  createdById   String?
+  createdBy     User?        @relation("StockCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime     @default(now())
+
+  @@index([tenantId, productId, createdAt])
+  @@index([tenantId, movementType])
+}
+
+// ----------------------------------------------------
+// Customer Management
+// ----------------------------------------------------
+
+model Customer {
+  id             String    @id @default(uuid()) @map("_id")
+  tenantId       String
+  tenant         Tenant    @relation(fields: [tenantId], references: [id])
+  
+  name           String
+  mobileNumber   String?
+  email          String?
+  address        String?
+  city           String?
+  state          String?
+  pincode        String?
+  gstin          String?
+  openingBalance Float     @default(0.0)
+  notes          String?
+  status         String    @default("ACTIVE") // ACTIVE, BLOCKED
+  blockedReason  String?
+  blockedAt      DateTime?
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  invoices       Invoice[]
+  payments       Payment[]
+
+  @@index([tenantId, name])
+  @@index([tenantId, mobileNumber])
+  @@index([tenantId, email])
+  @@index([tenantId, status])
+}
+
+// ----------------------------------------------------
+// Billing & Invoicing Engine
+// ----------------------------------------------------
+
+model Invoice {
+  id             String        @id @default(uuid()) @map("_id")
+  tenantId       String
+  tenant         Tenant        @relation(fields: [tenantId], references: [id])
+  
+  invoiceNumber  String
+  invoiceDate    DateTime      @default(now())
+  dueDate        DateTime?
+  
+  customerId     String
+  customer       Customer      @relation(fields: [customerId], references: [id])
+
+  subtotal       Float         @default(0.0)
+  discountType   String        @default("FIXED")
+  discountAmount Float         @default(0.0)
+  taxAmount      Float         @default(0.0)
+  grandTotal     Float         @default(0.0)
+  
+  paidAmount     Float         @default(0.0)
+  pendingAmount  Float         @default(0.0)
+  paymentStatus  String        @default("UNPAID") // PAID, UNPAID, PARTIALLY_PAID, OVERDUE, CANCELLED
+  paymentMethod  String        @default("CASH") // CASH, UPI, BANK_TRANSFER, CARD, CHEQUE, OTHER
+
+  notes          String?
+  terms          String?
+  footer         String?
+  isCancelled    Boolean       @default(false)
+
+  createdById    String?
+  createdBy      User?         @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  items          InvoiceItem[]
+  payments       Payment[]
+
+  @@unique([tenantId, invoiceNumber])
+  @@index([tenantId, invoiceDate])
+  @@index([tenantId, customerId])
+  @@index([tenantId, paymentStatus])
+  @@index([tenantId, dueDate])
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid()) @map("_id")
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+  
+  productName String
+  sku         String?
+  unit        String   @default("PCS")
+  quantity    Float    @default(1.0)
+  unitPrice   Float    @default(0.0)
+  discount    Float    @default(0.0)
+  taxRate     Float    @default(0.0)
+  taxAmount   Float    @default(0.0)
+  totalAmount Float    @default(0.0)
+
+  @@index([productId])
+}
+
+model Payment {
+  id            String        @id @default(uuid()) @map("_id")
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  
+  invoiceId     String
+  invoice       Invoice       @relation(fields: [invoiceId], references: [id])
+  
+  customerId    String
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  
+  amount        Float
+  paymentDate   DateTime      @default(now())
+  paymentMethod String        @default("CASH")
+  referenceNo   String?
+  notes         String?
+
+  createdById   String?
+  createdBy     User?         @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime      @default(now())
+
+  @@index([tenantId, paymentDate])
+  @@index([tenantId, invoiceId])
+  @@index([tenantId, customerId])
+}
+
+// ----------------------------------------------------
+// Expense Tracking
+// ----------------------------------------------------
+
+model ExpenseCategory {
+  id          String    @id @default(uuid()) @map("_id")
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  name        String
+  description String?
+  createdAt   DateTime  @default(now())
+
+  expenses    Expense[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model Expense {
+  id            String           @id @default(uuid()) @map("_id")
+  tenantId      String
+  tenant        Tenant           @relation(fields: [tenantId], references: [id])
+  
+  title         String
+  categoryId    String?
+  category      ExpenseCategory? @relation(fields: [categoryId], references: [id])
+  
+  amount        Float
+  expenseDate   DateTime         @default(now())
+  paymentMethod String           @default("CASH")
+  description   String?
+  attachmentUrl String?
+
+  createdById   String?
+  createdBy     User?            @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime         @default(now())
+
+  @@index([tenantId, expenseDate])
+  @@index([tenantId, categoryId])
+}
+
+// ----------------------------------------------------
+// Admin & Support
+// ----------------------------------------------------
+
+model SupportTicket {
+  id        String   @id @default(uuid()) @map("_id")
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  subject   String
+  message   String
+  priority  String   @default("MEDIUM")
+  status    String   @default("OPEN")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @map("_id")
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  userId    String?
+  action    String
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+}

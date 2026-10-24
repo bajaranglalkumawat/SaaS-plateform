@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">BillFlow</string>
+    <string name="title_activity_main">BillFlow</string>
+    <string name="package_name">com.billflow.saas</string>
+    <string name="custom_url_scheme">com.billflow.saas</string>
+</resources>

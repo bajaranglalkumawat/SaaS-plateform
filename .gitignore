@@ -1,0 +1,41 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next
+.next/
+out/
+build/
+dist/
+
+# env / secrets
+.env
+.env.local
+.env.*.local
+
+# android signing (never commit)
+android/keystore.properties
+android/*.keystore
+android/*.jks
+*.keystore
+*.jks
+
+# logs / ide
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# prisma
+prisma/*.db-journal
+
+# capacitor
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/captures/
